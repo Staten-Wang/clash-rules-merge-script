@@ -24,6 +24,7 @@ const appRuleProviders = {
     path: "./ruleset/Gemini.yaml",
     interval: 86400,
   },
+
   Microsoft: {
     type: "http",
     behavior: "classical",
@@ -39,6 +40,15 @@ const appRuleProviders = {
     path: "./ruleset/SteamCN.yaml",
     interval: 86400,
   },
+
+  AdobeActivation: {
+    type: "http",
+    behavior: "classical",
+    url: "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/AdobeActivation/AdobeActivation.yaml",
+    path: "./ruleset/AdobeActivation.yaml",
+    interval: 86400,
+  },
+  
 };
 
 const groupMaps = {
