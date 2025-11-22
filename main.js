@@ -1,7 +1,37 @@
-const { main: main } = require('./config');
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
+const vm = require('vm');
+
+/**
+ * 新增函数：使用 VM 加载没有 exports 的文件并提取 main 函数
+ */
+function loadMainFromConfig(filePath) {
+  const absPath = path.resolve(filePath);
+  const code = fs.readFileSync(absPath, 'utf8');
+  // 2. 准备沙箱环境
+  // 我们需要把 console, require 等常用全局变量传进去，
+  // 否则 config.js 里如果用了 console.log 或 require 会报错
+  const sandbox = {
+    console: console,
+    require: require,
+    process: process,
+    __dirname: path.dirname(absPath),
+    __filename: absPath,
+    // 如果 config.js 里有 module.exports = ... 的写法（虽然它可能没生效），
+    // 添加下面两行可以防止报错
+    module: {},
+    exports: {}
+  };
+  // 3. 创建上下文并运行代码
+  vm.createContext(sandbox);
+  vm.runInContext(code, sandbox);
+  // 4. 从沙箱中获取 main 函数
+  if (typeof sandbox.main !== 'function') {
+    throw new Error(`在 ${filePath} 中未找到名为 main 的函数`);
+  }
+  return sandbox.main;
+}
 
 
 function yamlFileToJsonSync(yamlPath) {
@@ -40,7 +70,10 @@ function jsonToYamlFileSync(input, outPath) {
 if (require.main === module) {
   const input = './test.yaml';  
   const output = './output.yaml'; 
+  const configPath = './config.js'; 
+
   try {
+    const main = loadMainFromConfig(configPath);
     const obj = yamlFileToJsonSync(input);
     const new_obj = main(obj)
     jsonToYamlFileSync(new_obj,output)
@@ -52,4 +85,3 @@ if (require.main === module) {
   }
 }
 
-// 如果你想在命令行接收文件路径、或写回文件，可在这里扩展

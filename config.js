@@ -309,7 +309,3 @@ const generalRuleProviders = {
     interval: 86400
   },
 };
-
-
-// 粘贴到clash 中记得删除下面这句话
-module.exports = { main };
