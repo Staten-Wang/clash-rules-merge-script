@@ -10,6 +10,7 @@ const prependRule = [
   "DOMAIN-SUFFIX,bing.com,DIRECT",
   "DOMAIN-KEYWORD,lingva,DIRECT",
   "DOMAIN-KEYWORD,openreview,DIRECT",
+  "DOMAIN-KEYWORD,aistudio.google.com,Gemini",
   // "DOMAIN-KEYWORD,ieeexplore,DIRECT",
   // "DOMAIN-SUFFIX,infini-cloud.net,DIRECT",
 ];
