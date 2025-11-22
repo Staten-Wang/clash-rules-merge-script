@@ -3,6 +3,7 @@ const BEST_PROXY_TOLERANCE = 100;
 const HEALTH_CHECK_TEST_URL = 'http://www.gstatic.com/generate_204';
 const INTERVAL = 30;
 const TIMEOUT = 100;
+const GEOIPURL = 'https://cdn.jsdelivr.net/gh/Hackl0us/GeoIP2-CN@release/Country.mmdb';
 
 const prependRule = [
   "DOMAIN-KEYWORD,adobe,REJECT",
@@ -165,6 +166,13 @@ function getProxyNames(proxies) {
 
 
 function main(config) {
+  config['geodata-mode'] = true;
+  config['geodata-loader'] = 'standard';
+  config['geo-auto-update'] = true;
+  config['geo-update-interval'] = 24;
+  config['geox-url'] = config['geox-url'] || {};
+  config['geox-url'].geoip = GEOIPURL;
+
   // 获取所有 代理节点的名称
   const allProxyNames = getProxyNames(config['proxies']);
 
