@@ -48,7 +48,7 @@ const appRuleProviders = {
     path: "./ruleset/AdobeActivation.yaml",
     interval: 86400,
   },
-  
+
 };
 
 const groupMaps = {
@@ -232,9 +232,6 @@ function main(config) {
   return config;
 }
 
-// 粘贴到clash 中记得删除下面这句话
-module.exports = { main };
-
 // generalRuleProviders
 
 const generalRuleProviderRules = [
@@ -305,3 +302,7 @@ const generalRuleProviders = {
     interval: 86400
   },
 };
+
+
+// 粘贴到clash 中记得删除下面这句话
+module.exports = { main };
