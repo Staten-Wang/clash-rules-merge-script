@@ -1,5 +1,8 @@
 
-const BEST_PROXY_TOLERANCE = 100
+const BEST_PROXY_TOLERANCE = 100;
+const HEALTH_CHECK_TEST_URL = 'http://www.gstatic.com/generate_204';
+const INTERVAL = 30;
+const TIMEOUT = 100;
 
 const prependRule = [
   "DOMAIN-KEYWORD,adobe,REJECT",
@@ -8,12 +11,35 @@ const prependRule = [
   "DOMAIN-KEYWORD,lingva,DIRECT",
   "DOMAIN-KEYWORD,openreview,DIRECT",
   // "DOMAIN-KEYWORD,ieeexplore,DIRECT",
-
   // "DOMAIN-SUFFIX,infini-cloud.net,DIRECT",
 ];
 
 
+// appRuleProviders
+const appRuleProviders = {
+  Gemini: {
+    type: "http",
+    behavior: "classical",
+    url: "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/Gemini/Gemini.yaml",
+    path: "./ruleset/Gemini.yaml",
+    interval: 86400,
+  },
+  Microsoft: {
+    type: "http",
+    behavior: "classical",
+    url: "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/Microsoft/Microsoft.yaml",
+    path: "./ruleset/Microsoft.yaml",
+    interval: 86400,
+  },
 
+  SteamCN: {
+    type: "http",
+    behavior: "classical",
+    url: "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/SteamCN/SteamCN.yaml",
+    path: "./ruleset/SteamCN.yaml",
+    interval: 86400,
+  },
+};
 
 const groupMaps = {
   "香港": ["香港", "HK", 'hk', "港专线"],
@@ -49,19 +75,30 @@ const flagEmojis = {
 };
 
 
-
-
-function createAreaBestProxyGroup(groupName, proxiesList) {
+function createSelectProxyGroup(groupName, proxyNamesList) {
   return {
     name: groupName,
-    type: 'url-test',
-    proxies: proxiesList.slice(), // 复制一份
-    url: 'http://www.gstatic.com/generate_204',
-    interval: 30,
+    type: 'select',
+    proxies: proxyNamesList.slice(), // 复制一份
+    url: HEALTH_CHECK_TEST_URL,
+    interval: INTERVAL,
     tolerance: BEST_PROXY_TOLERANCE,
+    timeout: TIMEOUT,
     lazy: true
   };
 }
+
+function createUrlTestProxyGroup(groupName, proxyNamesList) {
+  return {
+    name: groupName,
+    type: 'url-test',
+    proxies: proxyNamesList.slice(), // 复制一份
+    url: HEALTH_CHECK_TEST_URL,
+    interval: INTERVAL,
+    tolerance: BEST_PROXY_TOLERANCE,
+    lazy: true
+  };
+};
 
 
 function prepareAlias() {
@@ -77,8 +114,7 @@ function prepareAlias() {
   return aliasToCanonical
 }
 
-function createAllAreaBestProxyGroups(config) {
-  const allProxies = config['proxies']
+function createAllAreaBestProxyGroups(proxyNamesList) {
   const proxyGroups = {};
   for (const key of Object.keys(groupMaps)) {
     proxyGroups[key] = [];
@@ -86,62 +122,176 @@ function createAllAreaBestProxyGroups(config) {
   const noHitGroup = []
 
   const aliasToCanonical = prepareAlias()
-  for (const proxy of allProxies) {
-    // console.log(proxy['name']);
+  for (const proxyName of proxyNamesList) {
+
     let isHit = false;
     for (const key of Object.keys(aliasToCanonical)) {
-      // console.log();
-      if (proxy['name'].includes(key)) {
-        proxyGroups[aliasToCanonical[key]].push(proxy['name']);
+      if (proxyName.includes(key)) {
+        proxyGroups[aliasToCanonical[key]].push(proxyName);
         isHit = true;
         break;
       }
     }
     if (!isHit) {
-      noHitGroup.push(proxy['name']);
-    }
-  }
+      noHitGroup.push(proxyName);
+    };
+  };
 
-  console.log(`未命中分组: ${ noHitGroup.join(', ') }`);
+  console.log(`未命中分组: ${noHitGroup.join(', ')}`);
   const areaBestProxyGroups = []
   for (const [name, proxiesList] of Object.entries(proxyGroups)) {
     if (proxiesList.length > 0) {
       nationalFlag = flagEmojis[name] ?? '🏳'
-      areaBestProxyGroups.push(createAreaBestProxyGroup(`${nationalFlag}|-最优路线-|${name}`, proxiesList));
+      areaBestProxyGroups.push(createUrlTestProxyGroup(`${nationalFlag}|-最优路线-|${name}`, proxiesList));
     }
   }
   return areaBestProxyGroups;
-}
+};
 
-function addNewProxyGroupsToOldGroupsProxiesImmutable(oldGroups, newGroups, front = false) {
-  if (!Array.isArray(oldGroups) || !Array.isArray(newGroups)) return oldGroups;
-  const newNames = newGroups.map(g => g && g.name).filter(Boolean);
-  if (newNames.length === 0) return oldGroups.slice().filter(Boolean); // 保持去掉假值的一致性
 
-  return oldGroups
-    .filter(Boolean) // 这里去掉假值的 oldGroup
-    .map(oldGroup => {
-      if (!isSelect(oldGroup.type)) return oldGroup;
-      const proxies = Array.isArray(oldGroup.proxies) ? oldGroup.proxies.slice() : [];
-      const merged = front ? [...newNames, ...proxies] : [...proxies, ...newNames];
-      return { ...oldGroup, proxies: merged };
-    });
-}
+function getProxyNames(proxies) {
+  return (proxies || []).map(p => (p && typeof p.name !== 'undefined') ? String(p.name) : '');
+};
+
 
 function main(config) {
-  const areaBestProxyGroups = createAllAreaBestProxyGroups(config);
-  let oldrules = config["rules"];
-  config["rules"] = prependRule.concat(oldrules);
-  // const newProxyGroups = config['proxy-groups'];
-  const newProxyGroups = addNewProxyGroupsToOldGroupsProxiesImmutable(config['proxy-groups'], areaBestProxyGroups);
-  newProxyGroups.push(...areaBestProxyGroups)
-  config['proxy-groups'] = newProxyGroups;
+  // 获取所有 代理节点的名称
+  const allProxyNames = getProxyNames(config['proxies']);
+
+  // build UseProxysGroups 
+  const useProxyGroups = [];
+
+  const allProxiesGroup = createSelectProxyGroup('独立节点', allProxyNames);
+  const areaBestProxyGroups = createAllAreaBestProxyGroups(allProxyNames);
+  useProxyGroups.push(allProxiesGroup, ...areaBestProxyGroups);
+
+  const allProxyGroups = createSelectProxyGroup('代理选择', getProxyNames(useProxyGroups));
+  useProxyGroups.unshift(allProxyGroups);
+
+  const useProxyGroupNames = getProxyNames(useProxyGroups);
+
+  // build ruleProxyGroups
+  const ruleProxyGroups = [];
+
+  const appRuleProviderRuleNames = Object.keys(appRuleProviders);
+  const appRuleProxyGroups = appRuleProviderRuleNames.map(name =>
+    createSelectProxyGroup(name, [...useProxyGroupNames,'DIRECT','REJECT'])
+  );
+  ruleProxyGroups.push(...appRuleProxyGroups);
+
+  const directProxyGroupName = ['DIRECT', ...useProxyGroupNames];
+  const directProxyGroup = createSelectProxyGroup('直连', directProxyGroupName);
+  ruleProxyGroups.push(directProxyGroup);
+
+  const rejectProxyGroupName = ['REJECT', 'DIRECT', ...useProxyGroupNames];
+  const rejectProxyGroup = createSelectProxyGroup('拦截', rejectProxyGroupName);
+  ruleProxyGroups.push(rejectProxyGroup);
+
+
+  // 汇总代理组
+  const summaryProxyGroups = [];  // 汇总所有groups 给 config['proxy-groups'] 用
+  summaryProxyGroups.push(...useProxyGroups, ...ruleProxyGroups);
+  config['proxy-groups'] = summaryProxyGroups;
+
+
+  //  rule-providers
+  const allRuleProviders = { ...appRuleProviders, ...generalRuleProviders };
+
+  config['rule-providers'] = allRuleProviders;
+
+  // Rules
+  const summaryRules = [];
+  //  插入 自定义规则
+  summaryRules.unshift(...(prependRule || []));
+
+
+  // Build appRules
+  // RULE-SET,appRuleProvidersName, appRuleProxyGroupName
+  // appRuleProvidersName == appRuleProxyGroupName
+  const appRules = appRuleProviderRuleNames.map(name =>
+    `RULE-SET,${name},${name}`
+  );
+  summaryRules.push(...appRules);
+
+  //  添加 generalRuleProviderRules
+  summaryRules.push(...generalRuleProviderRules);
+  // 兜底Rule, 所有未被其他规则匹配的都会被此规则捕获,必须放在最后。
+  const matchRule = 'MATCH,代理选择'
+  summaryRules.push(matchRule);
+  config["rules"] = summaryRules;
   return config;
 }
 
-function isSelect(check_str) {
-  return typeof check_str === 'string' && check_str === 'select';
-}
-
 // 粘贴到clash 中记得删除下面这句话
-module.exports = { main };  
+module.exports = { main };
+
+// generalRuleProviders
+
+const generalRuleProviderRules = [
+  'RULE-SET,reject,拦截',
+  'RULE-SET,applications,直连',
+  'RULE-SET,private,直连',
+  'RULE-SET,direct,直连',
+  'RULE-SET,lancidr,直连',
+  'RULE-SET,cncidr,直连',
+  'GEOIP,CN,直连,no-resolve',
+];
+
+//  
+const generalRuleProviders = {
+  gfw: {
+    type: "http",
+    behavior: "domain",
+    url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/gfw.txt",
+    path: "./ruleset/gfw.yaml",
+    interval: 86400
+  },
+
+  reject: {
+    type: "http",
+    behavior: "domain",
+    url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/reject.txt",
+    path: "./ruleset/reject.yaml",
+    interval: 86400
+  },
+
+  applications: {
+    type: "http",
+    behavior: "classical",
+    url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/applications.txt",
+    path: "./ruleset/applications.yaml",
+    interval: 86400,
+  },
+
+  private: {
+    type: "http",
+    behavior: "domain",
+    url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/private.txt",
+    path: "./ruleset/private.yaml",
+    interval: 86400
+  },
+
+  direct: {
+    type: "http",
+    behavior: "domain",
+    url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/direct.txt",
+    path: "./ruleset/direct.yaml",
+    interval: 86400
+  },
+
+  lancidr: {
+    type: "http",
+    behavior: "ipcidr",
+    url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/lancidr.txt",
+    path: "./ruleset/lancidr.yaml",
+    interval: 86400
+  },
+
+  cncidr: {
+    type: "http",
+    behavior: "ipcidr",
+    url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/cncidr.txt",
+    path: "./ruleset/cncidr.yaml",
+    interval: 86400
+  },
+};
