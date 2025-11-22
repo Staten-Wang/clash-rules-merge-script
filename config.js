@@ -6,7 +6,6 @@ const TIMEOUT = 100;
 const GEOIPURL = 'https://cdn.jsdelivr.net/gh/Hackl0us/GeoIP2-CN@release/Country.mmdb';
 
 const prependRule = [
-  "DOMAIN-KEYWORD,adobe,REJECT",
   "DOMAIN-KEYWORD,aihubmix,DIRECT",
   "DOMAIN-SUFFIX,bing.com,DIRECT",
   "DOMAIN-KEYWORD,lingva,DIRECT",
