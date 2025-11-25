@@ -33,6 +33,14 @@ const appRuleProviders = {
     interval: 86400,
   },
 
+  OpenAI: {
+    type: "http",
+    behavior: "classical",
+    url: "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Loon/OpenAI/OpenAI.list",
+    path: "./ruleset/OpenAI.yaml",
+    interval: 86400,
+  },
+
   Microsoft: {
     type: "http",
     behavior: "classical",
