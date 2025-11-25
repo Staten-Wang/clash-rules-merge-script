@@ -1,4 +1,3 @@
-
 const BEST_PROXY_TOLERANCE = 100;
 const HEALTH_CHECK_TEST_URL = 'http://www.gstatic.com/generate_204';
 const INTERVAL = 30;
@@ -23,6 +22,14 @@ const appRuleProviders = {
     behavior: "classical",
     url: "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/Gemini/Gemini.yaml",
     path: "./ruleset/Gemini.yaml",
+    interval: 86400,
+  },
+
+  Google: {
+    type: "http",
+    behavior: "classical",
+    url: "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/Google/Google.yaml",
+    path: "./ruleset/Google.yaml",
     interval: 86400,
   },
 
