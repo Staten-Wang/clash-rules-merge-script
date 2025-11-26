@@ -52,6 +52,12 @@ async function main() {
   const url = argv[0];
   const outFileArg = argv[1] || null;
   const maxBytes = argv[2] ? parseInt(argv[2], 10) : (process.env.MAX_BYTES ? parseInt(process.env.MAX_BYTES, 10) : undefined);
+  const forceText = (() => {
+    // 支持第4个位置参数为 '1' 或 'true' 来强制按文本解码，或通过环境变量 FORCE_TEXT=1/true
+    if (argv[3]) return argv[3] === '1' || argv[3].toLowerCase() === 'true';
+    const v = process.env.FORCE_TEXT;
+    return v === '1' || (typeof v === 'string' && v.toLowerCase() === 'true');
+  })();
 
   console.log('validateTargetUrl ->', url);
   try {
@@ -66,8 +72,8 @@ async function main() {
   console.log('fetchRemote ->', url, ' maxBytes=', maxBytes || '(default)');
 
   try {
-    const remote = await downloader.fetchRemote(url, { maxBytes: maxBytes });
-    console.log('fetchRemote: contentEncoding=', remote.contentEncoding, ' contentType=', remote.contentType);
+    const remote = await downloader.fetchRemote(url, { maxBytes: maxBytes, forceText });
+    console.log('fetchRemote: contentEncoding=', remote.contentEncoding, ' contentType=', remote.contentType, ' forceText=', !!forceText);
 
     // 尝试从 headers 中获取 content-disposition 提示的文件名
     const cdHeader = remote.headers && (remote.headers['content-disposition'] || remote.headers['Content-Disposition']);

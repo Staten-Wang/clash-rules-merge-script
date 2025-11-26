@@ -109,6 +109,7 @@ function parseContentDispositionFilename(headerValue) {
  *   - method (默认 'GET')
  *   - headers (可选)
  *   - redirect ('follow' by default)
+ *   - forceText (boolean) - 当为 true 时即使 content-type 不是文本也尝试按 utf8 解码并以文本返回；
  *
  * 返回 (成功)：
  *   {
@@ -194,8 +195,10 @@ async function fetchRemote(target, options = {}) {
     throw err;
   }
 
-  if (isTextContentType(contentType)) {
-    // 尝试以 utf8 解码并返回字符串
+  // 当 contentType 表示文本，或调用者显式要求强制按文本解析时，按 utf8 返回文本。
+  const forceText = !!options.forceText;
+  if (isTextContentType(contentType) || forceText) {
+    // 尝试以 utf8 解码并返回字符串（注意：对于真正的二进制数据，可能包含替换字符）
     const content = buf.toString('utf8');
     return {
       content,
