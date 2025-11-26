@@ -259,7 +259,6 @@ function main(config) {
 
 const generalRuleProviderRules = [
   'RULE-SET,reject,拦截',
-  'RULE-SET,applications,直连',
   'RULE-SET,private,直连',
   'RULE-SET,direct,直连',
   'RULE-SET,lancidr,直连',
@@ -283,14 +282,6 @@ const generalRuleProviders = {
     url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/reject.txt",
     path: "./ruleset/reject.yaml",
     interval: 86400
-  },
-
-  applications: {
-    type: "http",
-    behavior: "classical",
-    url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/applications.txt",
-    path: "./ruleset/applications.yaml",
-    interval: 86400,
   },
 
   private: {
