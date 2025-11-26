@@ -67,10 +67,10 @@ async function main() {
 
   try {
     const remote = await downloader.fetchRemote(url, { maxBytes: maxBytes });
-    console.log('fetchRemote: type=', remote.type, ' contentType=', remote.contentType);
+    console.log('fetchRemote: contentEncoding=', remote.contentEncoding, ' contentType=', remote.contentType);
 
     // 尝试从 headers 中获取 content-disposition 提示的文件名
-    const cdHeader = remote.headers && (remote.headers['content-disposition'] || remote.headers['Content-Disposition'] || remote.headers['content-disposition'.toLowerCase()]);
+    const cdHeader = remote.headers && (remote.headers['content-disposition'] || remote.headers['Content-Disposition']);
     let inferredName = null;
     if (cdHeader) {
       inferredName = getFilenameFromContentDisposition(cdHeader);
@@ -85,76 +85,21 @@ async function main() {
     }
     inferredName = sanitizeFilename(inferredName) || null;
 
-    if (remote.type === 'text') {
+    if (remote.contentEncoding === 'utf8') {
       const content = remote.content;
       const outfile = outFileArg || inferredName || 'out.txt';
       fs.writeFileSync(outfile, content, 'utf8');
       console.log(`Wrote text ${Buffer.byteLength(content, 'utf8')} bytes to ${outfile}`);
       console.log('Upstream headers:', remote.headers);
-    } else if (remote.type === 'stream') {
+    } else if (remote.contentEncoding === 'base64') {
+      const content = remote.content || '';
       const outfile = outFileArg || inferredName || 'out.yaml';
-      const tmpFile = outfile + '.part';
-      const ws = fs.createWriteStream(tmpFile);
-      let bytes = 0;
-      let aborted = false;
-
-      remote.stream.on('data', (chunk) => {
-        bytes += chunk.length;
-        if (maxBytes && bytes > maxBytes) {
-          aborted = true;
-          console.error('Exceeded maxBytes, destroying stream');
-          try { remote.stream.destroy(); } catch (e) {}
-          try { ws.destroy(new Error('exceeded maxBytes')); } catch (e) {}
-        }
-      });
-
-      remote.stream.on('error', (err) => {
-        console.error('upstream stream error:', err && err.message ? err.message : err);
-      });
-
-      ws.on('error', (err) => {
-        console.error('write stream error:', err && err.message ? err.message : err);
-      });
-
-      ws.on('close', () => {
-        if (aborted) {
-          try { fs.unlinkSync(tmpFile); } catch (e) {}
-          console.error('Download aborted and partial file removed');
-        } else {
-          try {
-            fs.renameSync(tmpFile, outfile);
-            console.log(`Wrote binary ${bytes} bytes to ${outfile}`);
-          } catch (e) {
-            console.error('Failed to rename tmp file:', e);
-          }
-        }
-      });
-
-      // pipe（node-fetch v2 的 body 为 Node Readable stream） 
-      if (typeof remote.stream.pipe === 'function') {
-        remote.stream.pipe(ws);
-      } else if (remote.stream.getReader) {
-        // WHATWG 流 fallback（不常见）
-        (async () => {
-          const reader = remote.stream.getReader();
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              ws.write(Buffer.from(value));
-            }
-            ws.end();
-          } catch (e) {
-            ws.destroy(e);
-          }
-        })();
-      } else {
-        throw new Error('unsupported stream type from fetchRemote');
-      }
-
+      const buf = Buffer.from(content, 'base64');
+      fs.writeFileSync(outfile, buf);
+      console.log(`Wrote binary ${buf.length} bytes to ${outfile}`);
       console.log('Upstream headers:', remote.headers);
     } else {
-      console.error('Unknown remote.type:', remote.type);
+      console.error('Unknown contentEncoding:', remote.contentEncoding, ' full remote object:', remote);
     }
   } catch (err) {
     console.error('fetchRemote error:', err && err.message ? err.message : err);
