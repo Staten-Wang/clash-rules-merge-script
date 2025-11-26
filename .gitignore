@@ -1,4 +1,5 @@
 /node_modules
-/output.yaml
+
 /test.yaml
 /.vscode
+/*.yaml
