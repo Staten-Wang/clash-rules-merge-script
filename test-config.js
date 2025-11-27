@@ -66,21 +66,39 @@ function jsonToYamlFileSync(input, outPath) {
   fs.writeFileSync(outPath, yamlStr, 'utf8');
 }
 
-// CLI 用法： node yaml-to-json.js input.yaml output.json
+// CLI 用法： node test-config.js [input.yaml] [output.yaml] [config.js]
 if (require.main === module) {
-  const input = './test.yaml';  
-  const output = './output.yaml'; 
-  const configPath = './config.js'; 
+  const argv = process.argv.slice(2);
+  if (argv.length > 0 && (argv[0] === '-h' || argv[0] === '--help')) {
+    console.log('Usage: node test-config.js [input.yaml] [output.yaml] [config.js]');
+    console.log('Defaults: input=./test.yaml  output=./output.yaml  config=./config.js');
+    process.exit(0);
+  }
+
+  const input = argv[0];
+  const output = argv[1];
+  const configPath = './config.js';
 
   try {
+    // 简单验证路径是否存在（输入文件 & config），若不存在给出友好提示
+    if (!fs.existsSync(input)) {
+      console.error(`Input YAML not found: ${input}`);
+      process.exit(2);
+    }
+    if (!fs.existsSync(configPath)) {
+      console.error(`Config file not found: ${configPath}`);
+      process.exit(2);
+    }
+
     const main = loadMainFromConfig(configPath);
     const obj = yamlFileToJsonSync(input);
-    const new_obj = main(obj)
-    jsonToYamlFileSync(new_obj,output)
+    const new_obj = main(obj);
+    jsonToYamlFileSync(new_obj, output);
     console.log('Converted successfully. Result object:');
     console.log(JSON.stringify(new_obj['proxy-groups'], null, 2));
+    console.log(`Wrote YAML to ${output}`);
   } catch (err) {
-    console.error('Error:', err.message);
+    console.error('Error:', err.message || err);
     process.exit(2);
   }
 }

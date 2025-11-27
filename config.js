@@ -3,6 +3,12 @@ const HEALTH_CHECK_TEST_URL = 'http://www.gstatic.com/generate_204';
 const INTERVAL = 30;
 const TIMEOUT = 100;
 const GEOIPURL = 'https://cdn.jsdelivr.net/gh/Hackl0us/GeoIP2-CN@release/Country.mmdb';
+const KEYSORDER = [
+  'port', 'socks-port', 'redir-port', 'allow-lan', 'mode', 'log-level', 'external-controller', 'secret',
+  'geodata-mode', 'geodata-loader', 'geo-auto-update', 'geo-update-interval', 'geox-url',
+  'proxies', 'proxy-groups',
+  'rules', 'rule-providers'
+];
 
 const prependRule = [
   "DOMAIN-KEYWORD,aihubmix,DIRECT",
@@ -179,6 +185,26 @@ function getProxyNames(proxies) {
   return (proxies || []).map(p => (p && typeof p.name !== 'undefined') ? String(p.name) : '');
 };
 
+/**
+ * 根据给定的 keysOrder 对象顶层键进行重排。
+ * keysOrder 中出现的键会按顺序放在结果开头，剩余键按原始对象的遍历顺序追加。
+ */
+function reorderKeys(obj, keysOrder) {
+  if (!obj || typeof obj !== 'object') return obj;
+  const result = {};
+  const used = new Set();
+  for (const k of (keysOrder || [])) {
+    if (Object.prototype.hasOwnProperty.call(obj, k)) {
+      result[k] = obj[k];
+      used.add(k);
+    }
+  }
+  for (const k of Object.keys(obj)) {
+    if (!used.has(k)) result[k] = obj[k];
+  }
+  return result;
+}
+
 
 function main(config) {
   config['geodata-mode'] = true;
@@ -208,7 +234,7 @@ function main(config) {
 
   const appRuleProviderRuleNames = Object.keys(appRuleProviders);
   const appRuleProxyGroups = appRuleProviderRuleNames.map(name =>
-    createSelectProxyGroup(name, [...useProxyGroupNames,'DIRECT','REJECT'])
+    createSelectProxyGroup(name, [...useProxyGroupNames, 'DIRECT', 'REJECT'])
   );
   ruleProxyGroups.push(...appRuleProxyGroups);
 
@@ -252,6 +278,15 @@ function main(config) {
   const matchRule = 'MATCH,代理选择'
   summaryRules.push(matchRule);
   config["rules"] = summaryRules;
+
+  // 按 KEYSORDER 重排顶层键，未在 KEYSORDER 中的键保持原始顺序追加
+  try {
+    config = reorderKeys(config, KEYSORDER);
+  } catch (e) {
+    // 若重排出现异常则保持原始 config，不影响主流程
+    console.error('reorderKeys failed:', e && e.message ? e.message : e);
+  }
+
   return config;
 }
 
