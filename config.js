@@ -207,7 +207,7 @@ function reorderKeys(obj, keysOrder) {
 
 
 function main(config) {
-  config['geodata-mode'] = true;
+  config['geodata-mode'] = false;
   config['geodata-loader'] = 'standard';
   config['geo-auto-update'] = true;
   config['geo-update-interval'] = 24;
