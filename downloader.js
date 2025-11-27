@@ -249,6 +249,18 @@ async function fetchRemote(target, options = {}) {
     }
   }
 
+  // 如果 filename 存在但没有后缀，则默认添加 .yaml
+  if (filename) {
+    try {
+      const ext = path.extname(filename);
+      if (!ext) {
+        filename = filename + '.yaml';
+      }
+    } catch (e) {
+      // 忽略任何异常，保留原始 filename
+    }
+  }
+
   // 读取完整 body 为 Buffer（node-fetch v2 支持 res.buffer()）
   let buf;
   try {

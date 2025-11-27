@@ -75,25 +75,21 @@ async function main() {
     const remote = await downloader.fetchRemote(url, { maxBytes: maxBytes, forceText });
     console.log('fetchRemote: contentEncoding=', remote.contentEncoding, ' contentType=', remote.contentType, ' forceText=', !!forceText);
 
-    // 尝试从 headers 中获取 content-disposition 提示的文件名
-    const cdHeader = remote.headers && (remote.headers['content-disposition'] || remote.headers['Content-Disposition']);
-    let inferredName = null;
-    if (cdHeader) {
-      inferredName = getFilenameFromContentDisposition(cdHeader);
-    }
+    // 优先使用 fetchRemote 返回的 filename（如果提供），否则回退到 URL 推断
+    const inferredNameRaw = remote.filename || null;
+    let inferredName = sanitizeFilename(inferredNameRaw) || null;
     if (!inferredName) {
       try {
         const u = new URL(url);
-        inferredName = path.basename(u.pathname) || null;
+        inferredName = sanitizeFilename(path.basename(u.pathname)) || null;
       } catch (e) {
         inferredName = null;
       }
     }
-    inferredName = sanitizeFilename(inferredName) || null;
 
     if (remote.contentEncoding === 'utf8') {
       const content = remote.content;
-      const outfile = outFileArg || inferredName || 'out.txt';
+      const outfile = outFileArg || inferredName || 'out.yaml';
       fs.writeFileSync(outfile, content, 'utf8');
       console.log(`Wrote text ${Buffer.byteLength(content, 'utf8')} bytes to ${outfile}`);
       console.log('Upstream headers:', remote.headers);
