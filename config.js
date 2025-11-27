@@ -4,9 +4,11 @@ const INTERVAL = 30;
 const TIMEOUT = 100;
 const GEOIPURL = 'https://cdn.jsdelivr.net/gh/Hackl0us/GeoIP2-CN@release/Country.mmdb';
 const KEYSORDER = [
-  'port', 'socks-port', 'redir-port', 'allow-lan', 'mode', 'log-level', 'external-controller', 'secret',
+  'port', 'mixed-port', 'socks-port', 'redir-port', 'bind-address',
+  'allow-lan', 'mode', 'log-level', 'external-controller',
+  'unified-delay', 'tcp-concurrent', 'secret',
   'geodata-mode', 'geodata-loader', 'geo-auto-update', 'geo-update-interval', 'geox-url',
-  'proxies', 'proxy-groups',
+  'dns', 'proxies', 'proxy-groups',
   'rules', 'rule-providers'
 ];
 
@@ -211,7 +213,7 @@ function main(config) {
   // 如果已经标记为已转换，则直接返回，避免重复转换
   try {
     if (config && config.converted) return config;
-  } catch (e) {}
+  } catch (e) { }
 
   config['geodata-mode'] = false;
   config['geodata-loader'] = 'standard';
@@ -294,7 +296,7 @@ function main(config) {
   }
 
   // 标记为已转换，避免下次重复转换
-  try { config.converted = true; } catch (e) {}
+  try { config.converted = true; } catch (e) { }
   return config;
 }
 
