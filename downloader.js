@@ -6,6 +6,9 @@ const dns = require('dns').promises;
 const ipaddr = require('ipaddr.js');
 const { URL } = require('url');
 const path = require('path');
+const zlib = require('zlib');
+let iconv = null;
+try { iconv = require('iconv-lite'); } catch (e) { /* optional dependency */ }
 
 const DEFAULT_MAX_BYTES = 50 * 1024 * 1024; // 50MB
 
@@ -86,20 +89,81 @@ async function validateTargetUrl(target) {
 
 function parseContentDispositionFilename(headerValue) {
   if (!headerValue) return null;
-  // filename* (RFC5987)
-  const filenameStarMatch = headerValue.match(/filename\*\s*=\s*(?:[^\s;]+)?'[^']*'([^;]+)/i);
-  if (filenameStarMatch && filenameStarMatch[1]) {
-    try {
-      const val = filenameStarMatch[1].trim();
-      return decodeURIComponent(val.replace(/^["']|["']$/g, ''));
-    } catch (e) {}
+  // 尝试解析 filename* 按 RFC5987: filename*=charset'lang'encoded
+  // 例如: filename*=UTF-8''%E8%B5%94%E9%92%B1%E6%9C%BA%E5%9C%BA
+  const filenameStarMatch = headerValue.match(/filename\*\s*=\s*([^']*)'([^']*)'([^;\r\n]*)/i);
+  if (filenameStarMatch) {
+    const encoded = (filenameStarMatch[3] || '').trim();
+    if (encoded) {
+      // 去掉可能的外层引号
+      const raw = encoded.replace(/^['"]|['"]$/g, '');
+      try {
+        return decodeURIComponent(raw);
+      } catch (e) {
+        // 如果 decode 失败，返回未解码的 raw
+        return raw;
+      }
+    }
   }
-  const filenameMatch = headerValue.match(/filename\s*=\s*("([^"]+)"|([^;\s]+))/i);
+
+  // 回退到普通的 filename="..." 或 filename=token
+  const filenameMatch = headerValue.match(/filename\s*=\s*(?:"([^"]+)"|'([^']+)'|([^;\s]+))/i);
   if (filenameMatch) {
-    const name = filenameMatch[2] || filenameMatch[3];
-    return name ? name.trim().replace(/^["']|["']$/g, '') : null;
+    const name = filenameMatch[1] || filenameMatch[2] || filenameMatch[3];
+    return name ? name.trim() : null;
   }
   return null;
+}
+
+/**
+ * 尝试根据 content-encoding 解压给定的 Buffer。
+ * 如果 header 与实际数据不符或解压失败，函数会记录警告并返回原始或部分解压后的 buf（不会抛出）。
+ * 返回解压后的 Buffer。
+ */
+function tryDecompressBuffer(buf, contentEncodingHeader) {
+  if (!buf || !contentEncodingHeader) return buf;
+  const header = (contentEncodingHeader || '').toLowerCase();
+  try {
+    const isGzipBuf = buf && buf.length >= 2 && buf[0] === 0x1f && buf[1] === 0x8b;
+    const isZlibBuf = buf && buf.length >= 2 && buf[0] === 0x78;
+    const isBrotliPossible = buf && buf.length >= 3;
+
+    if (header.includes('gzip')) {
+      if (isGzipBuf) {
+        return zlib.gunzipSync(buf);
+      } else {
+        console.warn('content-encoding indicates gzip but buffer does not have gzip magic; skipping decompression');
+        return buf;
+      }
+    }
+
+    if (header.includes('deflate')) {
+      if (isZlibBuf) {
+        return zlib.inflateSync(buf);
+      } else {
+        console.warn('content-encoding indicates deflate but buffer does not have zlib header; skipping decompression');
+        return buf;
+      }
+    }
+
+    if (header.includes('br') && typeof zlib.brotliDecompressSync === 'function') {
+      if (isBrotliPossible) {
+        try {
+          return zlib.brotliDecompressSync(buf);
+        } catch (e) {
+          console.warn('brotli decompression failed, skipping:', e && e.message ? e.message : e);
+          return buf;
+        }
+      } else {
+        console.warn('content-encoding indicates brotli but buffer too small or not suitable; skipping decompression');
+        return buf;
+      }
+    }
+  } catch (e) {
+    console.warn('decompress warning (ignored):', e && e.message ? e.message : e);
+    return buf;
+  }
+  return buf;
 }
 
 /**
@@ -140,7 +204,14 @@ async function fetchRemote(target, options = {}) {
 
   let res;
   try {
-    res = await fetch(target, { method, headers, redirect });
+    // 合并传入 headers，并确保存在默认的 User-Agent（若调用方未提供）
+    const requestHeaders = Object.assign({}, headers);
+    // case-insensitive 检查是否已有 user-agent
+    const hasUA = Object.keys(requestHeaders).some(k => k.toLowerCase() === 'user-agent');
+    if (!hasUA) {
+      requestHeaders['user-agent'] = 'clash-verge/v2.4.3';
+    }
+    res = await fetch(target, { method, headers: requestHeaders, redirect });
   } catch (e) {
     const err = new Error(`fetch error: ${e.message}`);
     err.status = 502;
@@ -195,19 +266,49 @@ async function fetchRemote(target, options = {}) {
     throw err;
   }
 
-  // 当 contentType 表示文本，或调用者显式要求强制按文本解析时，按 utf8 返回文本。
+  // 处理 Content-Encoding（gzip/deflate/br）: 解压缩（封装为独立函数）
+  const contentEncodingHeader = res.headers.get('content-encoding') || '';
+  buf = tryDecompressBuffer(buf, contentEncodingHeader);
+
+  // 解压后大小检查
+  const decodedSize = buf.length;
+  if (decodedSize > maxBytes) {
+    const err = new Error('file too large after decompression');
+    err.status = 413;
+    throw err;
+  }
+
+  // 当 contentType 表示文本，或调用者显式要求强制按文本解析时，按 charset/utf8 返回文本。
   const forceText = !!options.forceText;
+  // 尝试从 content-type 中提取 charset
+  let charset = null;
+  const m = (contentType || '').match(/charset=\s*([^;\s]+)/i);
+  if (m && m[1]) charset = m[1].replace(/^['"]|['"]$/g, '').toLowerCase();
+
   if (isTextContentType(contentType) || forceText) {
-    // 尝试以 utf8 解码并返回字符串（注意：对于真正的二进制数据，可能包含替换字符）
-    const content = buf.toString('utf8');
+    // 按 charset 解码（若提供），否则使用 utf8。若安装了 iconv-lite 会用它来支持更多编码。
+    let content;
+    try {
+      if (charset && iconv) {
+        content = iconv.decode(buf, charset);
+      } else if (charset && (charset === 'utf-8' || charset === 'utf8' || charset === 'ascii' || charset === 'latin1')) {
+        content = buf.toString(charset === 'latin1' ? 'latin1' : charset);
+      } else {
+        content = buf.toString('utf8');
+      }
+    } catch (e) {
+      content = buf.toString('utf8');
+    }
     return {
       content,
       contentEncoding: 'utf8',
       contentType,
       headers: headersObj,
       status: res.status,
-      size,
-      filename
+      size: decodedSize,
+      filename,
+      charset,
+      contentEncodingHeader
     };
   } else {
     // 二进制：以 base64 返回
@@ -218,8 +319,10 @@ async function fetchRemote(target, options = {}) {
       contentType,
       headers: headersObj,
       status: res.status,
-      size,
-      filename
+      size: decodedSize,
+      filename,
+      charset,
+      contentEncodingHeader
     };
   }
 }
