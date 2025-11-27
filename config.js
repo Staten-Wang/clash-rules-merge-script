@@ -207,6 +207,12 @@ function reorderKeys(obj, keysOrder) {
 
 
 function main(config) {
+
+  // 如果已经标记为已转换，则直接返回，避免重复转换
+  try {
+    if (config && config.converted) return config;
+  } catch (e) {}
+
   config['geodata-mode'] = false;
   config['geodata-loader'] = 'standard';
   config['geo-auto-update'] = true;
@@ -287,6 +293,8 @@ function main(config) {
     console.error('reorderKeys failed:', e && e.message ? e.message : e);
   }
 
+  // 标记为已转换，避免下次重复转换
+  try { config.converted = true; } catch (e) {}
   return config;
 }
 
