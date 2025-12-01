@@ -13,13 +13,9 @@ const KEYSORDER = [
 ];
 
 const prependRule = [
-  "DOMAIN-KEYWORD,aihubmix,DIRECT",
-  "DOMAIN-SUFFIX,bing.com,DIRECT",
-  "DOMAIN-KEYWORD,lingva,DIRECT",
-  "DOMAIN-KEYWORD,openreview,DIRECT",
-  "DOMAIN-KEYWORD,aistudio.google.com,Gemini",
-  // "DOMAIN-KEYWORD,ieeexplore,DIRECT",
-  // "DOMAIN-SUFFIX,infini-cloud.net,DIRECT",
+  "DOMAIN-SUFFIX,aihubmix.com,DIRECT",
+  "DOMAIN-SUFFIX,openrouter.ai,DIRECT",
+  "DOMAIN-SUFFIX,aistudio.google.com,Gemini",
 ];
 
 
