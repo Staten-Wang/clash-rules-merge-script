@@ -25,6 +25,38 @@ const prependRule = [
 
 // appRuleProviders
 const appRuleProviders = {
+  AcademicCN: {
+    type: "http",
+    behavior: "classical",
+    url: "https://cdn.jsdelivr.net/gh/Staten-Wang/clash-rules-academic@main/AcademicCN/AcademicCN.yaml",
+    path: "./ruleset/AcademicCN.yaml",
+    interval: 86400,
+  },
+
+  AcademicDatabase: {
+    type: "http",
+    behavior: "classical",
+    url: "https://cdn.jsdelivr.net/gh/Staten-Wang/clash-rules-academic@main/AcademicDatabase/AcademicDatabase.yaml",
+    path: "./ruleset/AcademicDatabase.yaml",
+    interval: 86400,
+  },
+
+  AcademicGlobal: {
+    type: "http",
+    behavior: "classical",
+    url: "https://cdn.jsdelivr.net/gh/Staten-Wang/clash-rules-academic@main/AcademicGlobal/AcademicGlobal.yaml",
+    path: "./ruleset/AcademicGlobal.yaml",
+    interval: 86400,
+  },
+
+  AcademicProxy: {
+    type: "http",
+    behavior: "classical",
+    url: "https://cdn.jsdelivr.net/gh/Staten-Wang/clash-rules-academic@main/AcademicProxy/AcademicProxy.yaml",
+    path: "./ruleset/AcademicProxy.yaml",
+    interval: 86400,
+  },
+
   Gemini: {
     type: "http",
     behavior: "classical",
