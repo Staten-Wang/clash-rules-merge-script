@@ -1,5 +1,5 @@
 const BEST_PROXY_TOLERANCE = 100;
-const HEALTH_CHECK_TEST_URL = 'http://www.gstatic.com/generate_204';
+const HEALTH_CHECK_TEST_URL = 'https://www.gstatic.com/generate_204';
 const INTERVAL = 30;
 const TIMEOUT = 100;
 const GEOIPURL = 'https://cdn.jsdelivr.net/gh/Hackl0us/GeoIP2-CN@release/Country.mmdb';
